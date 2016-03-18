@@ -24,8 +24,9 @@
 
 import pytest
 
-from doschema.validation import start
 from doschema.errors import DoSchemaException, JSONSchemaCompatibilityException
+from doschema.validation import start
+
 
 # def test_collect():
 #     schemik = {

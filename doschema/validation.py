@@ -25,7 +25,9 @@
 """Merger module."""
 
 import collections
+
 from doschema.errors import DoSchemaException, JSONSchemaCompatibilityException
+
 
 def start(schemas_list, ignore_index=True, fields_types_dict={}):
     """Start processing a given list of schemas.
@@ -34,6 +36,7 @@ def start(schemas_list, ignore_index=True, fields_types_dict={}):
     :param ignore_index: If set to True, which is default, it will ignore
                          array indexes.
     """
+    fields_types_dict = fields_types_dict or {}
     ind = 0
     for scheme in schemas_list:
         _JSONSchemaCompatibilityChecker(
@@ -83,7 +86,7 @@ class _JSONSchemaCompatibilityChecker(object):
             elif isinstance(field_value, dict):
                 _JSONSchemaCompatibilityChecker(
                     self.schema_id,
-                    self.curr_field,
+                    self.curr_field + (field_name, ),
                     field_value,
                     self.ignore_index
                 ).traverse(fields_types_dict)
@@ -137,9 +140,9 @@ class _JSONSchemaCompatibilityChecker(object):
                 )
         else:
             fields_types_dict[self.curr_field] = FieldToAdd(
-                schema_index = self.schema_id,
-                field_tuple = self.curr_field,
-                field_type = field_value
+                schema_index=self.schema_id,
+                field_tuple=self.curr_field,
+                field_type=field_value
             )
 
     def collect_special(self, fields_types_dict, JSON_objects_list):
@@ -156,47 +159,3 @@ class _JSONSchemaCompatibilityChecker(object):
                 elem,
                 self.ignore_index
             ).traverse(fields_types_dict)
-
-
-# class FieldToAdd(object):
-#     """Class to keep field description."""
-
-#     def __init__(self, schema_index, field_tuple, field_type):
-#         """Constructor.
-
-#         :param schema_index: Index of schema where field was first declared.
-#         :param field_tuple: Tuple with path of a field.
-#         :param field_type: Type of a field.
-#         """
-#         self.schema_index = schema_index
-#         self.field_tuple = field_tuple
-#         self.field_type = field_type
-#
-
-# class JSONSchemaCompatibilityException(Exception):
-#     """Exception raised when a JSON schema is not backward compatible."""
-
-#     def __init__(self, dict_of_args, *args, **kwargs):
-#         """Constructor."""
-#         super(JSONSchemaCompatibilityException, self).__init__(*args, **kwargs)
-#         self.field_name = dict_of_args['field_name']
-#         """Name of the field with wrong type."""
-#         self.old_type = dict_of_args['old_type']
-#         """Previous type of the field."""
-#         self.old_schema = dict_of_args['old_schema']
-#         """Index of schema in which field has occured before."""
-#         self.new_type = dict_of_args['new_type']
-#         """Type of field that has been tried to add."""
-#         self.new_schema = dict_of_args['new_schema']
-#         """Index of schema in which field occurs now."""
-
-#     def __str__(self):
-#         """Return the formatted error message string."""
-#         return ("Field {0} already declared with type {1} in schema {2}."
-#                 "It cannot be declared as {3} in schema {4}.").format(
-#             self.field_name,
-#             self.old_type,
-#             self.old_schema,
-#             self.new_type,
-#             self.new_schema
-#         )
