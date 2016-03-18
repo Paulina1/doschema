@@ -24,8 +24,33 @@
 
 """Merger module."""
 
+import collections
+from doschema.errors import DoSchemaException, JSONSchemaCompatibilityException
 
-class JsonSchemaCompatibilityChecker(object):
+def start(schemas_list, ignore_index=True, fields_types_dict={}):
+    """Start processing a given list of schemas.
+
+    :param schemas_list: List of schemas to check compatibility.
+    :param ignore_index: If set to True, which is default, it will ignore
+                         array indexes.
+    """
+    ind = 0
+    for scheme in schemas_list:
+        _JSONSchemaCompatibilityChecker(
+            ind, (), scheme, ignore_index
+        ).traverse(fields_types_dict)
+        ind += 1
+
+    return fields_types_dict
+
+
+FieldToAdd = collections.namedtuple(
+    'FieldToAdd',
+    'schema_index field_tuple field_type'
+)
+
+
+class _JSONSchemaCompatibilityChecker(object):
     """Class for checking compatibility between schemas."""
 
     def __init__(self, schema_id, curr_field, curr_schema, ignore_index=True):
@@ -34,6 +59,8 @@ class JsonSchemaCompatibilityChecker(object):
         :param schema_id: Index of schema that is currently processed.
         :param curr_field: Tuple with path to currently processed field.
         :param curr_schema: Schema or subschema that is currently processed.
+        :param ignore_index: If set to True, which is default, it will ignore
+                             array indexes.
         """
         self.schema_id = schema_id
         self.curr_field = curr_field
@@ -54,9 +81,9 @@ class JsonSchemaCompatibilityChecker(object):
                 )
             # if a value is a dict recursively comes into it
             elif isinstance(field_value, dict):
-                JsonSchemaCompatibilityChecker(
+                _JSONSchemaCompatibilityChecker(
                     self.schema_id,
-                    self.curr_field + (field_name, ),
+                    self.curr_field,
                     field_value,
                     self.ignore_index
                 ).traverse(fields_types_dict)
@@ -67,21 +94,21 @@ class JsonSchemaCompatibilityChecker(object):
                     self.process_array(fields_types_dict, field_value)
 
     def process_array(self, fields_types_dict, field_value):
-        """Process each json object in the array according to ignore_index.
+        """Process each JSON object in the array according to ignore_index.
 
         :param fields_types_dict: Dictionary keeping path and type of
                                   the field.
         :param field_value: Type of the field.
         """
         field_path = self.curr_field + ('items', )
-
+        print(fields_types_dict)
         for elem in field_value:
             if self.ignore_index:
                 new_field_path = field_path
             else:
                 new_field_path = field_path + (field_value.index(elem), )
 
-            JsonSchemaCompatibilityChecker(
+            _JSONSchemaCompatibilityChecker(
                 self.schema_id,
                 new_field_path,
                 elem,
@@ -101,93 +128,75 @@ class JsonSchemaCompatibilityChecker(object):
         """
         if self.curr_field in fields_types_dict.keys():
             if fields_types_dict[self.curr_field].field_type != field_value:
-                raise JsonSchemaCompatibilityException({
-                    'field_name': self.curr_field,
-                    'old_type': fields_types_dict[
-                        self.curr_field
-                    ].field_type,
-                    'old_schema': fields_types_dict[
-                        self.curr_field
-                    ].schema_index,
-                    'new_type': field_value,
-                    'new_schema': self.schema_id
-                })
+                err_msg = "Type mismatch in schemas {0} and {1}."
+                old_schema = fields_types_dict[self.curr_field].schema_index
+                raise JSONSchemaCompatibilityException(
+                    old_schema,
+                    self.schema_id,
+                    err_msg.format(old_schema, self.schema_id)
+                )
         else:
             fields_types_dict[self.curr_field] = FieldToAdd(
-                self.schema_id,
-                self.curr_field,
-                field_value
+                schema_index = self.schema_id,
+                field_tuple = self.curr_field,
+                field_type = field_value
             )
 
-    def collect_special(self, fields_types_dict, json_objects_list):
+    def collect_special(self, fields_types_dict, JSON_objects_list):
         """Operate a field with name 'allOf', 'anyOf' or 'oneOf'.
 
         :param fields_types_dict: Dictionary keeping path and type of
                                   the field.
-        :param json_objects_list: List of json objects.
+        :param JSON_objects_list: List of JSON objects.
         """
-        for elem in json_objects_list:
-            JsonSchemaCompatibilityChecker(
+        for elem in JSON_objects_list:
+            _JSONSchemaCompatibilityChecker(
                 self.schema_id,
                 self.curr_field,
                 elem,
                 self.ignore_index
             ).traverse(fields_types_dict)
 
-    @staticmethod
-    def starter(schemas_list, ignore_index=True):
-        """Start processing a given list of schemas.
 
-        :param schemas_list: List of schemas to check compatibility.
-        """
-        fields_types_dict = {}
-        ind = 0
-        for scheme in schemas_list:
-            JsonSchemaCompatibilityChecker(
-                ind, (), scheme, ignore_index
-            ).traverse(fields_types_dict)
-            ind += 1
+# class FieldToAdd(object):
+#     """Class to keep field description."""
 
+#     def __init__(self, schema_index, field_tuple, field_type):
+#         """Constructor.
 
-class FieldToAdd(object):
-    """Class to keep field description."""
+#         :param schema_index: Index of schema where field was first declared.
+#         :param field_tuple: Tuple with path of a field.
+#         :param field_type: Type of a field.
+#         """
+#         self.schema_index = schema_index
+#         self.field_tuple = field_tuple
+#         self.field_type = field_type
+#
 
-    def __init__(self, schema_index, field_tuple, field_type):
-        """Constructor.
+# class JSONSchemaCompatibilityException(Exception):
+#     """Exception raised when a JSON schema is not backward compatible."""
 
-        :param schema_index: Index of schema where field was first declared.
-        :param field_tuple: Tuple with path of a field.
-        :param field_type: Type of a field.
-        """
-        self.schema_index = schema_index
-        self.field_tuple = field_tuple
-        self.field_type = field_type
+#     def __init__(self, dict_of_args, *args, **kwargs):
+#         """Constructor."""
+#         super(JSONSchemaCompatibilityException, self).__init__(*args, **kwargs)
+#         self.field_name = dict_of_args['field_name']
+#         """Name of the field with wrong type."""
+#         self.old_type = dict_of_args['old_type']
+#         """Previous type of the field."""
+#         self.old_schema = dict_of_args['old_schema']
+#         """Index of schema in which field has occured before."""
+#         self.new_type = dict_of_args['new_type']
+#         """Type of field that has been tried to add."""
+#         self.new_schema = dict_of_args['new_schema']
+#         """Index of schema in which field occurs now."""
 
-
-class JsonSchemaCompatibilityException(Exception):
-    """Exception raised when a json schema is not backward compatible."""
-
-    def __init__(self, dict_of_args, *args, **kwargs):
-        """Constructor."""
-        super(JsonSchemaCompatibilityException, self).__init__(*args, **kwargs)
-        self.field_name = dict_of_args['field_name']
-        """Name of the field with wrong type."""
-        self.old_type = dict_of_args['old_type']
-        """Previous type of the field."""
-        self.old_schema = dict_of_args['old_schema']
-        """Index of schema in which field has occured before."""
-        self.new_type = dict_of_args['new_type']
-        """Type of field that has been tried to add."""
-        self.new_schema = dict_of_args['new_schema']
-        """Index of schema in which field occurs now."""
-
-    def __str__(self):
-        """Return the formatted error message string."""
-        return ("Field {0} already declared with type {1} in schema {2}."
-                "It cannot be declared as {3} in schema {4}.").format(
-            self.field_name,
-            self.old_type,
-            self.old_schema,
-            self.new_type,
-            self.new_schema
-        )
+#     def __str__(self):
+#         """Return the formatted error message string."""
+#         return ("Field {0} already declared with type {1} in schema {2}."
+#                 "It cannot be declared as {3} in schema {4}.").format(
+#             self.field_name,
+#             self.old_type,
+#             self.old_schema,
+#             self.new_type,
+#             self.new_schema
+#         )
