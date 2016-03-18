@@ -28,28 +28,7 @@ from doschema.errors import DoSchemaException, JSONSchemaCompatibilityException
 from doschema.validation import start
 
 
-# def test_collect():
-#     schemik = {
-#         "type": "object",
-#         "properties": {
-#             "field_A": {"type": "string"}
-#         },
-#         "required": ["field_A"]
-#     }
-#     fields_types_dict = {}
-#     _JsonSchemaCompatibilityChecker(0, (), schemik
-#       ).traverse(fields_types_dict)
-#     assert () in fields_types_dict.keys()
-#     assert ('properties', 'field_A') in fields_types_dict.keys()
-#     assert isinstance(fields_types_dict[()], FieldToAdd)
-#     assert isinstance(fields_types_dict[('properties', 'field_A')],
-#       FieldToAdd)
-#     assert fields_types_dict[()].field_type == 'object'
-#     assert fields_types_dict[('properties', 'field_A')
-#        ].field_type == 'string'
-
-
-def test1_fail():
+def test_special_field_fail():
     v1 = {
         "type": "object",
         "oneOf": [{
@@ -69,7 +48,7 @@ def test1_fail():
         start(schema_list)
 
 
-def test1_pass():
+def test_special_field_pass():
     v1 = {
         "type": "object",
         "oneOf": [{
@@ -88,7 +67,7 @@ def test1_pass():
     start(schema_list)
 
 
-def test2_collect():
+def test_success_two_schemas():
     v1 = {
         "type": "object",
         "properties": {
@@ -107,7 +86,7 @@ def test2_collect():
     start(schema_list)
 
 
-def test3_collect():
+def test_failure_between_schemas():
     v1 = {
         "type": "object",
         "properties": {
@@ -135,7 +114,7 @@ def test3_collect():
         start(schema_list)
 
 
-def test3_1_ignore():  # can be the same
+def test_ignoring_indexes():  # can be the same
     v1 = {
         "type": "object",
         "properties": {
@@ -163,7 +142,7 @@ def test3_1_ignore():  # can be the same
         start(schema_list, True)
 
 
-def test3_1_noIgnore():
+def test_not_ignoring_indexes():
     v1 = {
         "type": "object",
         "properties": {
